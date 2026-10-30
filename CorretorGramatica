@@ -1,0 +1,263 @@
+-- Garante que não vai duplicar se rodar duas vezes
+local CoreGui = game:GetService("CoreGui")
+if CoreGui:FindFirstChild("CorretorGramaticaGUI") then
+    CoreGui.CorretorGramaticaGUI:Destroy()
+end
+
+-- Services
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- Função para remover acentos e o ç na hora de comparar
+local function normalizar(texto)
+    local subs = {
+        ["á"]="a", ["à"]="a", ["ã"]="a", ["â"]="a", ["ä"]="a",
+        ["é"]="e", ["è"]="e", ["ê"]="e", ["ë"]="e",
+        ["í"]="i", ["ì"]="i", ["î"]="i", ["ï"]="i",
+        ["ó"]="o", ["ò"]="o", ["õ"]="o", ["ô"]="o", ["ö"]="o",
+        ["ú"]="u", ["ù"]="u", ["û"]="u", ["ü"]="u",
+        ["ç"]="c"
+    }
+    return string.lower(texto):gsub("[%z\1-\127\194-\244][\128-\191]*", function(c)
+        return subs[c] or c
+    end)
+end
+
+-- Dicionário completo de correções (com acentos e ç)
+local dicionarioCorrecao = {
+    -- Palavras com Ç
+    ["graca"] = "graça",
+    ["gracas"] = "graças",
+    ["acucar"] = "açúcar",
+    ["cabeca"] = "cabeça",
+    ["espaco"] = "espaço",
+    ["calcado"] = "calçado",
+    ["macas"] = "maçãs",
+    ["maca"] = "maçã",
+    ["coracao"] = "coração",
+    ["solucao"] = "solução",
+    ["situacao"] = "situação",
+    ["comunicacao"] = "comunicação",
+    ["informacao"] = "informação",
+    ["atencao"] = "atenção",
+    ["funcao"] = "função",
+    ["acao"] = "ação",
+    ["colecao"] = "coleção",
+    ["direcao"] = "direção",
+    ["posicao"] = "posição",
+    ["geracao"] = "geração",
+    
+    -- Palavras com acento comum
+    ["gramatica"] = "gramática",
+    ["voce"] = "você",
+    ["voces"] = "vocês",
+    ["vc"] = "você",
+    ["vcs"] = "vocês",
+    ["nao"] = "não",
+    ["naum"] = "não",
+    ["tambem"] = "também",
+    ["tbm"] = "também",
+    ["tb"] = "também",
+    ["esta"] = "está",
+    ["estao"] = "estão",
+    ["eh"] = "é",
+    ["ja"] = "já",
+    ["so"] = "só",
+    ["ate"] = "até",
+    ["vao"] = "vão",
+    ["tera"] = "terá",
+    ["podera"] = "poderá",
+    ["alem"] = "além",
+    ["atraves"] = "através",
+    ["ninguem"] = "ninguém",
+    ["alguem"] = "alguém",
+    ["porem"] = "porém",
+    ["entao"] = "então",
+    ["maximo"] = "máximo",
+    ["minimo"] = "mínimo",
+    ["otimo"] = "ótimo",
+    ["pessimo"] = "péssimo",
+    ["facil"] = "fácil",
+    ["dificil"] = "difícil",
+    ["rapido"] = "rápido",
+    ["medico"] = "médico",
+    ["lampada"] = "lâmpada",
+    ["agua"] = "água",
+    ["musica"] = "música",
+    ["codigo"] = "código",
+    ["portugues"] = "português",
+    ["ingles"] = "inglês",
+    ["matematica"] = "matemática",
+    ["ciencia"] = "ciência",
+    ["historia"] = "história",
+    ["geografia"] = "geografia",
+    ["publico"] = "público",
+    ["numero"] = "número",
+    ["inicio"] = "início",
+    ["ultimo"] = "último",
+    ["proximo"] = "próximo",
+    ["pagina"] = "página",
+    ["duvida"] = "dúvida",
+    ["saude"] = "saúde",
+    
+    -- Gírias e atalhos de chat
+    ["pq"] = "porque",
+    ["q"] = "que",
+    ["qnt"] = "quanto",
+    ["qd"] = "quando",
+    ["kd"] = "cadê",
+    ["obg"] = "obrigado",
+    ["vlw"] = "valeu",
+    ["pfv"] = "por favor",
+    ["pfvr"] = "por favor"
+}
+
+-- Criando mapa comparativo normalizado
+local mapaNormalizado = {}
+for chave, valor in pairs(dicionarioCorrecao) do
+    mapaNormalizado[normalizar(chave)] = valor
+end
+
+-- Função Principal de Correção Gramatical
+local function corrigirTexto(textoOriginal)
+    if not textoOriginal or textoOriginal == "" then return "" end
+    
+    local palavras = string.split(textoOriginal, " ")
+    for i, palavra in ipairs(palavras) do
+        local prefixo, palavraLimpa, sufixo = string.match(palavra, "^(%p*)(.-)(%p*)$")
+        if palavraLimpa and palavraLimpa ~= "" then
+            local busca = normalizar(palavraLimpa)
+            if mapaNormalizado[busca] then
+                palavras[i] = prefixo .. mapaNormalizado[busca] .. sufixo
+            end
+        end
+    end
+    
+    local textoCorrigido = table.concat(palavras, " ")
+    
+    local primeiraLetra = string.sub(textoCorrigido, 1, 1)
+    textoCorrigido = string.upper(primeiraLetra) .. string.sub(textoCorrigido, 2)
+    
+    local ultimoCaractere = string.sub(textoCorrigido, -1)
+    if not string.find(ultimoCaractere, "[%.%!%?]") then
+        textoCorrigido = textoCorrigido .. "."
+    end
+    
+    return textoCorrigido
+end
+
+-- Função para enviar no Chat do Jogo
+local function enviarParaOChat(mensagem)
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        local generalChannel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if generalChannel then
+            generalChannel:SendAsync(mensagem)
+        end
+    else
+        local defaultChatSystemChatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+        if defaultChatSystemChatEvents then
+            local sayMessageRequest = defaultChatSystemChatEvents:FindFirstChild("SayMessageRequest")
+            if sayMessageRequest then
+                sayMessageRequest:FireServer(mensagem, "All")
+            end
+        end
+    end
+end
+
+-- Criação da Interface (GUI) com tamanho aumentado
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CorretorGramaticaGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = CoreGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 520, 0, 85)
+mainFrame.Position = UDim2.new(0.5, 0, 0.88, 0)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 6)
+uiCorner.Parent = mainFrame
+
+-- Título
+local titulo = Instance.new("TextLabel")
+titulo.Size = UDim2.new(1, 0, 0.32, 0)
+titulo.Position = UDim2.new(0, 0, 0.05, 0)
+titulo.BackgroundTransparency = 1
+titulo.Text = "CORRETOR DE GRAMATICA"
+titulo.TextColor3 = Color3.fromRGB(150, 160, 180)
+titulo.TextScaled = true
+titulo.Font = Enum.Font.SourceSansBold
+titulo.Parent = mainFrame
+
+-- Caixa de Texto
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0.94, 0, 0.48, 0)
+textBox.Position = UDim2.new(0.03, 0, 0.42, 0)
+textBox.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.PlaceholderText = "Digite aqui e aperte Enter..."
+textBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
+textBox.Text = ""
+textBox.TextScaled = true
+textBox.Font = Enum.Font.SourceSans
+textBox.ClearTextOnFocus = false
+textBox.Parent = mainFrame
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 4)
+boxCorner.Parent = textBox
+
+-- Sistema de Arrastar pelo Título
+local dragging, dragInput, dragStart, startPos
+
+titulo.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titulo.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(
+            startPos.X.Scale, 
+            startPos.X.Offset + delta.X, 
+            startPos.Y.Scale, 
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Ação ao apertar Enter
+textBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local textoDigitado = textBox.Text
+        if textoDigitado ~= "" then
+            local textoPronto = corrigirTexto(textoDigitado)
+            enviarParaOChat(textoPronto)
+            textBox.Text = ""
+        end
+    end
+end)
